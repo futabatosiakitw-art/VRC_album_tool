@@ -51,7 +51,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 9999;
-            pointer-events: none; /* マウスイベントを貫通させる */
+            pointer-events: none;
             max-width: 80vw;
             max-height: 80vh;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
@@ -180,7 +180,7 @@
                     <div v-for="(photo, index) in photos" :key="photo.id" 
                          class="theme-panel rounded-xl overflow-hidden shadow-2xl border border-gray-700 hover:border-blue-500 transition-all flex flex-col">
                         
-                        <!-- サムネイル画像 (ここにマウスオーバーでポップアップ表示) -->
+                        <!-- サムネイル画像 -->
                         <div class="w-full aspect-video bg-black relative hover-trigger cursor-crosshair">
                             <img :src="photo.thumbnail" alt="thumbnail" class="w-full h-full object-cover">
                             <span class="absolute top-2 left-2 bg-black bg-opacity-70 text-[11px] px-2 py-0.5 rounded text-white font-mono">#{{ index + 1 }}</span>
@@ -346,13 +346,12 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
-        const db = new Dexie('VRCAlbumDB_Final3');
+        const db = new Dexie('VRCAlbumDB_Final4');
         db.version(1).stores({
             photos: '++id, tab, worldUrl, worldName, comment, order',
             settings: 'key'
         });
 
-        // メタデータ抽出
         const extractMetadata = async (file) => {
             return new Promise(async (resolve) => {
                 let worldName = '';
@@ -385,7 +384,6 @@
                 const tabs = ref(['world1', 'world2']);
                 const activeTab = ref('world1');
                 
-                // タブ管理用
                 const manageTargetTab = ref('world1');
                 const manageRenameInput = ref('');
                 
@@ -401,7 +399,6 @@
                 const defaultTheme = { bgColor: '#1a202c', panelBg: '#2d3748', accentColor: '#3b82f6' };
                 const theme = reactive({...defaultTheme});
 
-                // モーダル関連
                 const isModalOpen = ref(false);
                 const collageCanvas = ref(null);
                 const twitterShareUrl = ref('#');
@@ -415,14 +412,14 @@
                 const bannerStyle = computed(() => settings.bannerImage ? { backgroundImage: `url(${settings.bannerImage})` } : {});
 
                 onMounted(async () => {
-                    const savedTabs = localStorage.getItem('vrc-tabs-final2');
+                    const savedTabs = localStorage.getItem('vrc-tabs-final3');
                     if (savedTabs) {
                         tabs.value = JSON.parse(savedTabs);
                     } else {
                         tabs.value = ['world1', 'world2'];
                     }
                     
-                    const savedTheme = localStorage.getItem('vrc-theme-final2');
+                    const savedTheme = localStorage.getItem('vrc-theme-final3');
                     if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
 
                     const bannerDb = await db.settings.get('bannerImage');
@@ -435,8 +432,8 @@
                     loadPhotos();
                 });
 
-                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final2', JSON.stringify(newTabs)), { deep: true });
-                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final2', JSON.stringify(newTheme)), { deep: true });
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final3', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final3', JSON.stringify(newTheme)), { deep: true });
 
                 const changeTab = (tabName) => {
                     activeTab.value = tabName;
@@ -644,7 +641,6 @@
                     }
                 };
 
-                // バナー設定のドロップハンドラ
                 const handleBannerDrop = async (e) => {
                     isBannerDragging.value = false;
                     const file = e.dataTransfer.files[0];
@@ -664,7 +660,6 @@
                     await db.settings.delete('bannerImage');
                 };
 
-                // 3:4 (1200x1600) で綺麗に収まるコラージュ生成
                 const generateNineWorlds = async () => {
                     const mainPhotos = photos.value;
                     if (mainPhotos.length === 0) return alert("現在のタブに写真が登録されていません。");
@@ -678,11 +673,9 @@
                         canvas.height = cH;
                         const ctx = canvas.getContext('2d');
 
-                        // 背景
                         ctx.fillStyle = theme.bgColor;
                         ctx.fillRect(0, 0, cW, cH);
 
-                        // バナー領域 (1200 x 320) カバー描画
                         const bannerH = 320;
                         if (settings.bannerImage) {
                             try {
@@ -691,12 +684,12 @@
                                 const imgRatio = bannerImg.width / bannerImg.height;
                                 let sx, sy, sW, sH;
                                 
-                                if (imgRatio > targetRatio) { // 横長すぎる
+                                if (imgRatio > targetRatio) {
                                     sH = bannerImg.height;
                                     sW = bannerImg.height * targetRatio;
                                     sx = (bannerImg.width - sW) / 2;
                                     sy = 0;
-                                } else { // 縦長すぎる
+                                } else {
                                     sW = bannerImg.width;
                                     sH = bannerImg.width / targetRatio;
                                     sx = 0;
@@ -711,22 +704,18 @@
                             ctx.fillRect(0, 0, cW, bannerH);
                         }
 
-                        // タイトル文字
                         ctx.fillStyle = '#ffffff';
                         ctx.font = 'bold 54px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.fillText("私を構成する9つのワールド", cW / 2, bannerH / 2 + 15);
 
-                        // 3x3 グリッド描画
                         const items = mainPhotos.slice(0, 9);
                         const thumbW = 340;
-                        const thumbH = 191; // 16:9
+                        const thumbH = 191;
                         const textSpace = 50;
                         const itemH = thumbH + textSpace;
                         
-                        // 左右の余白
                         const gapX = (cW - (thumbW * 3)) / 4;
-                        // 上下の余白 (バナー下からキャンバス下端まで)
                         const startY = bannerH;
                         const availableH = cH - startY;
                         const gapY = (availableH - (itemH * 3)) / 4;
@@ -740,12 +729,10 @@
                             const thumbImg = await loadImage(items[i].thumbnail);
                             ctx.drawImage(thumbImg, x, y, thumbW, thumbH);
 
-                            // 枠線
                             ctx.strokeStyle = theme.accentColor;
                             ctx.lineWidth = 4;
                             ctx.strokeRect(x, y, thumbW, thumbH);
 
-                            // ワールド名
                             ctx.fillStyle = '#ffffff';
                             ctx.font = 'bold 24px sans-serif';
                             ctx.textAlign = 'left';
@@ -753,7 +740,6 @@
                             ctx.fillText(text.length > 17 ? text.slice(0, 17) + '...' : text, x, y + thumbH + 35);
                         }
 
-                        // Twitterシェア用URL生成 (指定URLとハッシュタグ込み)
                         const tweetText = encodeURIComponent("私を構成する9つのワールド\n#VRChat #VRCPhotoAlbum\nhttps://futabatosiakitw-art.github.io/VRC_album_tool/");
                         twitterShareUrl.value = `https://twitter.com/intent/tweet?text=${tweetText}`;
                     });
@@ -816,7 +802,7 @@
                 };
 
                 return {
-                    tabs, activeTab, newTabName, changeTab, promptAddTab, 
+                    tabs, activeTab, changeTab, promptAddTab, 
                     manageTargetTab, manageRenameInput, renameSelectedTab, deleteSelectedTab,
                     isUploadOpen, isDragging, isBannerDragging, handleDrop, preview, cropSettings, cropCanvas, updateCropPreview, savePhoto,
                     photos, updateComment, deletePhoto, moveOrder, moveToIndex, openMoveDialog,
