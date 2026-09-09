@@ -55,7 +55,7 @@
 <body>
     <div id="app" class="min-h-screen flex flex-col items-center pb-12" :style="cssVars">
         
-        <!-- ヘッダーバナー (4:1のスリムで美しい比率) -->
+        <!-- ヘッダーバナー (4:1 スリムな比率) -->
         <header class="w-full max-w-7xl mx-auto mt-4 md:mt-6 rounded-2xl shadow-xl relative border border-[#1f3f45] bg-cover bg-center aspect-[4/1] flex items-end justify-center pb-5 md:pb-6 overflow-hidden" 
                 :style="bannerHeaderStyle">
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" v-if="settings.bannerImage"></div>
@@ -96,7 +96,7 @@
             <!-- ▼ 通常のタブの内容 ▼ -->
             <div v-if="activeTab !== '設定'" class="flex-grow flex flex-col">
                 
-                <!-- アルバムギャラリー (正方形サムネ + スッキリしたカード) -->
+                <!-- アルバムギャラリー -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     
                     <!-- 登録済みワールドカード -->
@@ -124,9 +124,12 @@
                                 </a>
                                 <p v-else class="text-lg font-bold text-gray-200 truncate mb-1">{{ photo.worldName || 'Unknown World' }}</p>
                                 
-                                <!-- コメント表示 (1行＋マウスオーバーで全文確認) -->
-                                <div class="bg-black bg-opacity-30 rounded px-2.5 py-1.5 border border-[#1f3f45] text-xs text-gray-300 truncate" :title="photo.comment">
-                                    {{ photo.comment || 'no comment' }}
+                                <!-- コメント表示 (1行目のみ表示 ＆ マウスオーバーで全文ポップアップ) -->
+                                <div class="relative group bg-black bg-opacity-30 rounded px-2.5 py-1.5 border border-[#1f3f45] text-xs text-gray-300 truncate cursor-pointer">
+                                    <span>{{ getFirstLine(photo.comment) }}</span>
+                                    <div v-if="hasMultipleLines(photo.comment)" class="absolute bottom-full left-0 mb-1 hidden group-hover:block z-50 bg-[#14282c] border border-[#00d2c4] text-white p-2.5 rounded-lg shadow-2xl text-xs whitespace-pre-wrap max-w-xs">
+                                        {{ photo.comment }}
+                                    </div>
                                 </div>
                             </div>
 
@@ -400,7 +403,7 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
-        const db = new Dexie('VRCAlbumDB_Final8');
+        const db = new Dexie('VRCAlbumDB_Final9');
         db.version(1).stores({
             photos: '++id, tab, worldUrl, worldName, comment, order',
             settings: 'key'
@@ -449,10 +452,8 @@
                 const cropSettings = reactive({ zoom: 1.0, x: 50, y: 50 });
                 const photos = ref([]);
 
-                // 編集モーダル用
                 const editingPhoto = ref(null);
 
-                // バナー調整用
                 const bannerPreview = ref(null);
                 const bannerCropCanvas = ref(null);
                 const bannerCropY = ref(50);
@@ -478,15 +479,25 @@
                     return `https://twitter.com/intent/tweet?text=${text}`;
                 });
 
+                // コメント用ヘルパー
+                const getFirstLine = (comment) => {
+                    if (!comment) return 'no comment';
+                    return comment.split('\n')[0] || 'no comment';
+                };
+
+                const hasMultipleLines = (comment) => {
+                    return comment && comment.includes('\n');
+                };
+
                 onMounted(async () => {
-                    const savedTabs = localStorage.getItem('vrc-tabs-final7');
+                    const savedTabs = localStorage.getItem('vrc-tabs-final8');
                     if (savedTabs) {
                         tabs.value = JSON.parse(savedTabs);
                     } else {
                         tabs.value = ['world1', 'world2'];
                     }
                     
-                    const savedTheme = localStorage.getItem('vrc-theme-final7');
+                    const savedTheme = localStorage.getItem('vrc-theme-final8');
                     if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
 
                     const bannerDb = await db.settings.get('bannerImage');
@@ -499,8 +510,8 @@
                     loadPhotos();
                 });
 
-                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final7', JSON.stringify(newTabs)), { deep: true });
-                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final7', JSON.stringify(newTheme)), { deep: true });
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final8', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final8', JSON.stringify(newTheme)), { deep: true });
 
                 const changeTab = (tabName) => {
                     activeTab.value = tabName;
@@ -742,7 +753,7 @@
                     if (!bannerPreview.value || !bannerCropCanvas.value) return;
                     const canvas = bannerCropCanvas.value;
                     const img = bannerPreview.value.rawImage;
-                    canvas.width = 1200; canvas.height = 300; // 4:1 比率
+                    canvas.width = 1200; canvas.height = 300;
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -762,7 +773,7 @@
                     if (!bannerPreview.value) return;
                     const canvas = document.createElement('canvas');
                     const img = bannerPreview.value.rawImage;
-                    canvas.width = 1200; canvas.height = 300; // 4:1 比率
+                    canvas.width = 1200; canvas.height = 300;
                     const ctx = canvas.getContext('2d');
 
                     const targetAspect = 1200 / 300;
@@ -819,10 +830,11 @@
                         ctx.fillRect(0, 0, cW, bannerH);
                     }
 
+                    // タイトル文字の位置を少し下寄り（bannerH - 70）に配置して目や顔を避ける
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 50px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(collageTitle.value || '9つのワールド', cW / 2, bannerH / 2 + 15);
+                    ctx.fillText(collageTitle.value || '9つのワールド', cW / 2, bannerH - 70);
 
                     const items = photos.value.slice(0, 9);
                     const cardSize = 300;
@@ -919,7 +931,8 @@
                     theme, cssVars, bannerHeaderStyle, resetTheme, settings, handleBannerDrop, removeBanner,
                     bannerPreview, bannerCropCanvas, bannerCropY, updateBannerCropPreview, saveBannerImage,
                     exportData, importData,
-                    isModalOpen, collageCanvas, collageTitle, openModal, updateCollageCanvas, downloadCollage, twitterShareUrl
+                    isModalOpen, collageCanvas, collageTitle, openModal, updateCollageCanvas, downloadCollage, twitterShareUrl,
+                    getFirstLine, hasMultipleLines
                 };
             }
         }).mount('#app');
