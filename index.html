@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VRC Photo Album</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <style>
+        /* CSS変数で色を管理 */
+        :root {
+            --bg-color: #1a202c;
+            --panel-bg: #2d3748;
+            --accent-color: #3b82f6;
+            --text-color: #e2e8f0;
+        }
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-color); 
+            transition: background-color 0.3s;
+        }
+        .theme-panel { background-color: var(--panel-bg); transition: background-color 0.3s; }
+        .theme-accent { background-color: var(--accent-color); color: #fff; }
+        .theme-accent:hover { filter: brightness(1.2); }
+        .theme-text-accent { color: var(--accent-color); }
+        
+        .drop-zone { border: 2px dashed #4a5568; transition: all 0.2s; }
+        .drop-zone.drag-over { background-color: rgba(255,255,255,0.05); border-color: var(--accent-color); }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+
+        /* にゅっと開くアニメーション */
+        .accordion-enter-active, .accordion-leave-active {
+            transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.4s ease;
+            max-height: 800px;
+            overflow: hidden;
+        }
+        .accordion-enter-from, .accordion-leave-to {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="min-h-screen flex flex-col" :style="cssVars">
+        <!-- シンプルなヘッダー -->
+        <header class="theme-panel shadow-md p-4 flex justify-between items-center border-b border-gray-700">
+            <h1 class="text-xl font-bold theme-text-accent">VRC Photo Album</h1>
+        </header>
+
+        <main class="flex-grow p-4 md:p-6 max-w-7xl mx-auto w-full flex flex-col">
+            <!-- タブエリア -->
+            <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-700 pb-2 items-end">
+                <div class="flex flex-wrap gap-2 flex-grow">
+                    <button v-for="tab in tabs" :key="tab" 
+                        @click="changeTab(tab)"
+                        :class="['px-4 py-2 rounded-t-lg font-medium transition-colors', activeTab === tab ? 'theme-accent' : 'theme-panel text-gray-300 hover:brightness-110']">
+                        {{ tab }}
+                    </button>
+                    <!-- タブ追加 -->
+                    <div class="flex items-center ml-2 mb-1">
+                        <input v-model="newTabName" type="text" placeholder="新しいタブ名" class="bg-black bg-opacity-30 border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                        <button @click="addTab" class="ml-2 theme-panel hover:brightness-110 px-3 py-1 rounded text-sm">+</button>
+                    </div>
+                </div>
+                <!-- 設定タブ (右端) -->
+                <button @click="changeTab('設定')"
+                    :class="['px-4 py-2 rounded-t-lg font-medium transition-colors ml-auto', activeTab === '設定' ? 'theme-accent' : 'theme-panel text-gray-300 hover:brightness-110']">
+                    ⚙️ 設定
+                </button>
+            </div>
+
+            <!-- ▼ 通常のタブの内容 ▼ -->
+            <div v-if="activeTab !== '設定'" class="flex-grow flex flex-col">
+                
+                <!-- 開閉ボタン -->
+                <button @click="isUploadOpen = !isUploadOpen" class="w-full py-3 mb-4 rounded-lg border border-gray-600 hover:bg-black hover:bg-opacity-20 transition flex items-center justify-center gap-2 text-gray-300">
+                    <span class="text-xl font-bold transition-transform duration-300" :class="{'rotate-45': isUploadOpen}">＋</span> 
+                    {{ isUploadOpen ? '登録パネルを閉じる' : '写真を登録する' }}
+                </button>
+
+                <!-- 登録用インターフェース (アコーディオン) -->
+                <transition name="accordion">
+                    <div v-show="isUploadOpen" class="theme-panel rounded-lg p-6 mb-6 shadow-lg">
+                        <div v-if="!preview" 
+                             class="drop-zone rounded-lg p-10 text-center cursor-pointer flex flex-col items-center justify-center bg-black bg-opacity-20"
+                             :class="{'drag-over': isDragging}"
+                             @dragover.prevent="isDragging = true"
+                             @dragleave.prevent="isDragging = false"
+                             @drop.prevent="handleDrop">
+                            <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            <p class="text-gray-300 font-bold">VRChatの写真をここにドラッグ＆ドロップ</p>
+                            <p class="text-gray-500 text-sm mt-2">メタデータから自動でワールド情報を抽出します</p>
+                        </div>
+
+                        <div v-else class="flex flex-col md:flex-row gap-6">
+                            <!-- プレビュー画像 -->
+                            <div class="w-full md:w-1/3">
+                                <img :src="preview.thumbnail" alt="Preview" class="rounded-lg shadow-md w-full object-cover max-h-64">
+                                <button @click="preview = null" class="mt-2 text-sm text-red-400 hover:text-red-300">キャンセル</button>
+                            </div>
+                            <!-- 入力フォーム -->
+                            <div class="w-full md:w-2/3 flex flex-col gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">ワールド名</label>
+                                    <input v-model="preview.worldName" type="text" class="w-full bg-black bg-opacity-30 border border-gray-600 rounded p-2 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">ワールドID</label>
+                                    <input v-model="preview.worldId" type="text" class="w-full bg-black bg-opacity-30 border border-gray-600 rounded p-2 focus:outline-none text-sm text-gray-400">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-400 mb-1">コメント</label>
+                                    <textarea v-model="preview.comment" rows="3" class="w-full bg-black bg-opacity-30 border border-gray-600 rounded p-2 focus:outline-none resize-none" placeholder="思い出などを入力..."></textarea>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button @click="savePhoto" class="theme-accent font-bold py-2 px-6 rounded-lg transition-colors shadow-lg">
+                                        【 {{ activeTab }} 】に登録
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- アルバムギャラリー -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div v-for="photo in photos" :key="photo.id" class="theme-panel rounded-lg overflow-hidden shadow-lg border border-transparent hover:border-blue-400 transition-colors">
+                        <img :src="photo.thumbnail" alt="thumbnail" class="w-full h-48 object-cover">
+                        <div class="p-4">
+                            <a v-if="photo.worldId" :href="`https://vrchat.com/home/world/${photo.worldId}`" target="_blank" class="text-lg font-bold theme-text-accent hover:underline block truncate mb-2">
+                                {{ photo.worldName || 'Unknown World' }}
+                            </a>
+                            <p v-else class="text-lg font-bold text-gray-300 truncate mb-2">{{ photo.worldName || 'Unknown World' }}</p>
+                            
+                            <p class="text-sm whitespace-pre-wrap break-words opacity-80">{{ photo.comment }}</p>
+                            
+                            <div class="mt-4 flex justify-between items-center">
+                                <button @click="changeTabForPhoto(photo)" class="text-xs text-gray-400 hover:text-white border border-gray-500 rounded px-2 py-1">移動</button>
+                                <button @click="deletePhoto(photo.id)" class="text-xs text-gray-500 hover:text-red-400">削除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="photos.length === 0" class="text-center text-gray-500 py-12 flex-grow">
+                    写真がありません。「写真を登録する」から追加してください。
+                </div>
+            </div>
+
+            <!-- ▼ 設定タブの内容 ▼ -->
+            <div v-else class="flex-grow">
+                <div class="theme-panel rounded-lg p-6 shadow-lg mb-6">
+                    <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">カラー設定</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-4">
+                        <div>
+                            <label class="block text-sm mb-2">背景色</label>
+                            <input type="color" v-model="theme.bgColor" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">パネル色 (枠など)</label>
+                            <input type="color" v-model="theme.panelBg" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-sm mb-2">アクセントカラー (ボタンなど)</label>
+                            <input type="color" v-model="theme.accentColor" class="w-full h-10 rounded cursor-pointer">
+                        </div>
+                    </div>
+                    <button @click="resetTheme" class="text-sm border border-gray-500 rounded px-4 py-1 hover:bg-white hover:text-black transition">デフォルトに戻す</button>
+                </div>
+
+                <div class="theme-panel rounded-lg p-6 shadow-lg mb-6">
+                    <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">使い方とデータの保存について</h2>
+                    <ul class="list-disc pl-5 space-y-2 text-sm opacity-90">
+                        <li><strong>使い方：</strong>「写真を登録する」ボタンを押し、VRChatで撮影した画像(PNG)をドラッグ＆ドロップすると、自動でワールド情報が読み込まれます。</li>
+                        <li><strong>データの保存場所：</strong> 保存した画像や情報はサーバーではなく、<strong>お使いのブラウザ内（IndexedDB）</strong>に保存されます。</li>
+                        <li class="text-red-400 font-bold">データ消失の注意：ブラウザのキャッシュクリアや閲覧履歴の削除（Cookieと他のサイトデータの削除など）を行うと、保存したアルバムデータがすべて消えてしまいます。</li>
+                        <li><strong>タブの削除：</strong> 中身の写真が0枚の状態で、タブ名を空にして「＋」を押すとタブを削除できます（※今回は簡易仕様です）。</li>
+                    </ul>
+                </div>
+
+                <div class="theme-panel rounded-lg p-6 shadow-lg">
+                    <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">バックアップ (エクスポート・インポート)</h2>
+                    <p class="text-sm mb-4 opacity-90">
+                        データが消えてしまう前に、定期的にエクスポート（JSONファイルのダウンロード）を行うことを強く推奨します。<br>
+                        別のPCやブラウザにデータを移行する際も、この機能を使用してください。
+                    </p>
+                    <div class="flex gap-4">
+                        <button @click="exportData" class="theme-accent font-bold py-2 px-6 rounded-lg transition-colors shadow-lg">
+                            データをエクスポート
+                        </button>
+                        <label class="border border-green-500 text-green-500 hover:bg-green-500 hover:text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg cursor-pointer">
+                            インポート (復元)
+                            <input type="file" accept=".json" @change="importData" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
+
+        const db = new Dexie('VRCAlbumDB');
+        db.version(1).stores({
+            photos: '++id, tab, worldId, worldName, comment'
+        });
+
+        createApp({
+            setup() {
+                const tabs = ref(['メイン', '景観']);
+                const activeTab = ref('メイン');
+                const newTabName = ref('');
+                const isUploadOpen = ref(false); // 登録パネルの開閉状態
+                const isDragging = ref(false);
+                const preview = ref(null);
+                const photos = ref([]);
+
+                // テーマ設定
+                const defaultTheme = { bgColor: '#1a202c', panelBg: '#2d3748', accentColor: '#3b82f6' };
+                const theme = reactive({...defaultTheme});
+
+                const cssVars = computed(() => ({
+                    '--bg-color': theme.bgColor,
+                    '--panel-bg': theme.panelBg,
+                    '--accent-color': theme.accentColor
+                }));
+
+                onMounted(() => {
+                    const savedTabs = localStorage.getItem('vrc-tabs');
+                    if (savedTabs) tabs.value = JSON.parse(savedTabs);
+                    
+                    const savedTheme = localStorage.getItem('vrc-theme');
+                    if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
+
+                    loadPhotos();
+                });
+
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme', JSON.stringify(newTheme)), { deep: true });
+
+                const changeTab = (tabName) => {
+                    activeTab.value = tabName;
+                    if (tabName !== '設定') {
+                        isUploadOpen.value = false;
+                        preview.value = null;
+                        loadPhotos();
+                    }
+                };
+
+                const addTab = () => {
+                    const name = newTabName.value.trim();
+                    if (name && !tabs.value.includes(name)) {
+                        tabs.value.push(name);
+                        changeTab(name);
+                        newTabName.value = '';
+                    }
+                };
+
+                const resetTheme = () => Object.assign(theme, defaultTheme);
+
+                const loadPhotos = async () => {
+                    if (activeTab.value === '設定') return;
+                    photos.value = await db.photos.where('tab').equals(activeTab.value).reverse().toArray();
+                };
+
+                const handleDrop = async (event) => {
+                    isDragging.value = false;
+                    const file = event.dataTransfer.files[0];
+                    if (!file || !file.type.startsWith('image/')) return;
+
+                    let worldName = '';
+                    let worldId = '';
+                    try {
+                        const buffer = await file.arrayBuffer();
+                        const text = new TextDecoder('iso-8859-1').decode(buffer);
+                        const nameMatch = text.match(/"name":"(.*?)"/);
+                        const idMatch = text.match(/"id":"(wrld_[^"]+)"/);
+                        if (nameMatch) worldName = decodeURIComponent(JSON.parse(`"${nameMatch[1]}"`));
+                        if (idMatch) worldId = idMatch[1];
+                    } catch (e) {
+                        console.log("メタデータ読み取り失敗", e);
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 800;
+                            const scale = Math.min(MAX_WIDTH / img.width, 1);
+                            canvas.width = img.width * scale;
+                            canvas.height = img.height * scale;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            
+                            preview.value = {
+                                thumbnail: canvas.toDataURL('image/webp', 0.8),
+                                worldName: worldName,
+                                worldId: worldId,
+                                comment: ''
+                            };
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                };
+
+                const savePhoto = async () => {
+                    if (!preview.value) return;
+                    await db.photos.add({
+                        tab: activeTab.value,
+                        worldId: preview.value.worldId,
+                        worldName: preview.value.worldName,
+                        comment: preview.value.comment,
+                        thumbnail: preview.value.thumbnail
+                    });
+                    preview.value = null;
+                    isUploadOpen.value = false; // 登録後に閉じる
+                    await loadPhotos();
+                };
+
+                const deletePhoto = async (id) => {
+                    if(confirm("この写真を削除しますか？")) {
+                        await db.photos.delete(id);
+                        await loadPhotos();
+                    }
+                };
+
+                // 簡単なタブ移動機能（おまけ）
+                const changeTabForPhoto = async (photo) => {
+                    const destTab = prompt(`移動先のタブ名を入力してください。\n現在のタブ一覧: ${tabs.value.join(', ')}`);
+                    if(destTab && tabs.value.includes(destTab) && destTab !== activeTab.value) {
+                        await db.photos.update(photo.id, { tab: destTab });
+                        await loadPhotos();
+                    } else if (destTab) {
+                        alert("存在する別のタブ名を入力してください。");
+                    }
+                };
+
+                const exportData = async () => {
+                    const allData = await db.photos.toArray();
+                    const exportObj = { tabs: tabs.value, photos: allData };
+                    const blob = new Blob([JSON.stringify(exportObj)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `vrc_album_backup_${new Date().toISOString().slice(0,10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                const importData = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (data.tabs) tabs.value = data.tabs;
+                            if (data.photos && data.photos.length > 0) {
+                                const cleanPhotos = data.photos.map(p => { delete p.id; return p; });
+                                await db.photos.bulkAdd(cleanPhotos);
+                                alert("インポートが完了しました！");
+                                await loadPhotos();
+                            }
+                        } catch (err) {
+                            alert("エラーが発生しました。バックアップファイルか確認してください。");
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+
+                return {
+                    tabs, activeTab, newTabName, changeTab, addTab,
+                    isUploadOpen, isDragging, handleDrop, preview, savePhoto,
+                    photos, deletePhoto, changeTabForPhoto,
+                    theme, cssVars, resetTheme,
+                    exportData, importData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
