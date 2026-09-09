@@ -27,20 +27,9 @@
         .drop-zone { border: 2px dashed #28545c; transition: all 0.2s; }
         .drop-zone.drag-over { background-color: rgba(0, 210, 196, 0.05); border-color: var(--accent-color); }
         
-        /* スクロールバー (長い時だけスマートに出す) */
-        textarea::-webkit-scrollbar { width: 4px; }
-        textarea::-webkit-scrollbar-thumb { background: var(--accent-color); border-radius: 4px; }
-        textarea { scrollbar-width: thin; scrollbar-color: var(--accent-color) transparent; }
-
-        .accordion-enter-active, .accordion-leave-active {
-            transition: max-height 0.4s ease, opacity 0.3s ease;
-            max-height: 1200px;
-            overflow: hidden;
-        }
-        .accordion-enter-from, .accordion-leave-to {
-            max-height: 0;
-            opacity: 0;
-        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--accent-color); border-radius: 4px; }
 
         /* 画面中央ポップアップ */
         .preview-popup {
@@ -66,12 +55,12 @@
 <body>
     <div id="app" class="min-h-screen flex flex-col items-center pb-12" :style="cssVars">
         
-        <!-- ヘッダーバナー (アルバム幅に合わせ、3:1比率・文字下寄り) -->
-        <header class="w-full max-w-7xl mx-auto mt-4 md:mt-6 rounded-2xl shadow-xl relative border border-[#1f3f45] bg-cover bg-center aspect-[3/1] flex items-end justify-center pb-6 md:pb-8 overflow-hidden" 
+        <!-- ヘッダーバナー (4:1のスリムで美しい比率) -->
+        <header class="w-full max-w-7xl mx-auto mt-4 md:mt-6 rounded-2xl shadow-xl relative border border-[#1f3f45] bg-cover bg-center aspect-[4/1] flex items-end justify-center pb-5 md:pb-6 overflow-hidden" 
                 :style="bannerHeaderStyle">
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" v-if="settings.bannerImage"></div>
             <div class="relative z-10 text-center px-4">
-                <h1 class="text-2xl md:text-4xl font-bold tracking-widest text-white drop-shadow-lg" style="text-shadow: 0 2px 6px rgba(0,0,0,0.9);">VRC World Album</h1>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-widest text-white drop-shadow-lg" style="text-shadow: 0 2px 6px rgba(0,0,0,0.9);">VRC World Album</h1>
             </div>
         </header>
 
@@ -94,6 +83,9 @@
                     <button v-if="activeTab !== '設定'" @click="openModal" class="theme-panel border border-[#00d2c4] text-[#00d2c4] hover:bg-[#00d2c4] hover:text-[#0b1618] px-4 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-lg">
                         ✨ 9つのワールド画像を生成
                     </button>
+                    <button v-if="activeTab !== '設定'" @click="isUploadModalOpen = true" class="theme-accent px-4 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-lg gap-1">
+                        <span>＋</span> ワールド登録
+                    </button>
                     <button @click="changeTab('設定')"
                         :class="['px-5 py-2.5 rounded-lg font-bold transition-colors text-sm shadow', activeTab === '設定' ? 'theme-accent text-[#0b1618]' : 'theme-panel text-gray-300 hover:brightness-110']">
                         ⚙️ 設定
@@ -104,83 +96,15 @@
             <!-- ▼ 通常のタブの内容 ▼ -->
             <div v-if="activeTab !== '設定'" class="flex-grow flex flex-col">
                 
-                <!-- ワールド登録パネル開閉ボタン -->
-                <button @click="isUploadOpen = !isUploadOpen" class="w-full py-4 mb-6 rounded-xl border border-[#28545c] hover:bg-black hover:bg-opacity-20 transition flex items-center justify-center gap-3 text-gray-200 shadow-lg font-bold">
-                    <span class="text-2xl font-bold transition-transform duration-300" :class="{'rotate-45': isUploadOpen}">＋</span> 
-                    {{ isUploadOpen ? '登録パネルを閉じる' : 'ワールドを登録する' }}
-                </button>
-
-                <!-- 登録用インターフェース -->
-                <transition name="accordion">
-                    <div v-show="isUploadOpen" class="theme-panel rounded-xl p-8 mb-8 shadow-2xl border border-[#1f3f45]">
-                        <div v-if="!preview" 
-                             class="drop-zone rounded-xl p-16 text-center cursor-pointer flex flex-col items-center justify-center bg-black bg-opacity-30"
-                             :class="{'drag-over': isDragging}"
-                             @dragover.prevent="isDragging = true"
-                             @dragleave.prevent="isDragging = false"
-                             @drop.prevent="handleDrop">
-                            <svg class="w-16 h-16 text-[#00d2c4] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            <p class="text-gray-200 font-bold text-lg">VRChatの写真（PNG）をここにドラッグ＆ドロップ</p>
-                            <p class="text-gray-400 text-sm mt-2">メタデータからワールド名とURLを自動抽出します</p>
-                        </div>
-
-                        <div v-else class="flex flex-col lg:flex-row gap-8">
-                            <div class="w-full lg:w-1/2 flex flex-col gap-4">
-                                <label class="block text-sm text-gray-300 font-bold">① サムネイル切り抜きプレビュー (正方形 1:1)</label>
-                                <div class="w-full aspect-square max-w-[360px] mx-auto bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] shadow-inner flex items-center justify-center">
-                                    <canvas ref="cropCanvas" class="w-full h-full object-cover"></canvas>
-                                </div>
-                                <div class="bg-black bg-opacity-30 p-4 rounded-lg flex flex-col gap-3">
-                                    <div>
-                                        <div class="flex justify-between text-xs text-gray-400 mb-1"><span>拡大率:</span><span>{{ cropSettings.zoom.toFixed(1) }}x</span></div>
-                                        <input type="range" v-model.number="cropSettings.zoom" min="1" max="2.5" step="0.05" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <div class="text-[10px] text-gray-400 mb-1">横位置: {{ cropSettings.x }}%</div>
-                                            <input type="range" v-model.number="cropSettings.x" min="0" max="100" step="1" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
-                                        </div>
-                                        <div>
-                                            <div class="text-[10px] text-gray-400 mb-1">縦位置: {{ cropSettings.y }}%</div>
-                                            <input type="range" v-model.number="cropSettings.y" min="0" max="100" step="1" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="w-full lg:w-1/2 flex flex-col justify-between gap-4">
-                                <div class="flex flex-col gap-4">
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">ワールド名</label>
-                                        <input v-model="preview.worldName" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-3 text-sm focus:outline-none focus:border-[#00d2c4]">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">ワールドURL</label>
-                                        <input v-model="preview.worldUrl" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-3 text-sm text-gray-300 focus:outline-none focus:border-[#00d2c4]">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">コメント (複数行可)</label>
-                                        <textarea v-model="preview.comment" rows="4" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-3 text-sm focus:outline-none focus:border-[#00d2c4] resize-none" placeholder="思い出などを入力..."></textarea>
-                                    </div>
-                                </div>
-                                <div class="flex justify-between items-center pt-2">
-                                    <button @click="preview = null" class="text-sm text-red-400 hover:text-red-300 px-6 py-2 border border-red-400 rounded-lg font-bold">キャンセル</button>
-                                    <button @click="savePhoto" class="theme-accent font-bold py-3 px-10 rounded-lg transition-colors shadow-lg text-lg">
-                                        【 {{ activeTab }} 】に登録
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </transition>
-
-                <!-- アルバムギャラリー (カード全体が 3:4 の縦長プロポーション) -->
+                <!-- アルバムギャラリー (正方形サムネ + スッキリしたカード) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    
+                    <!-- 登録済みワールドカード -->
                     <div v-for="(photo, index) in photos" :key="photo.id" 
-                         class="theme-panel rounded-xl overflow-hidden shadow-2xl border border-[#1f3f45] hover:border-[#00d2c4] transition-all flex flex-col aspect-[3/4]">
+                         class="theme-panel rounded-xl overflow-hidden shadow-2xl border border-[#1f3f45] hover:border-[#00d2c4] transition-all flex flex-col">
                         
                         <!-- サムネイル画像 (1:1 正方形) -->
-                        <div class="w-full aspect-square bg-black relative hover-trigger cursor-crosshair flex-shrink-0">
+                        <div class="w-full aspect-square bg-black relative hover-trigger cursor-crosshair">
                             <img :src="photo.thumbnail" alt="thumbnail" class="w-full h-full object-cover">
                             <span class="absolute top-2 left-2 bg-black bg-opacity-70 text-[11px] px-2 py-0.5 rounded text-white font-mono">#{{ index + 1 }}</span>
                             <span class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-[10px] px-2 py-0.5 rounded text-gray-300 pointer-events-none">🔍 ホバーで全体像</span>
@@ -192,24 +116,22 @@
                             </div>
                         </div>
 
-                        <!-- カード本文エリア (3:4に美しく収まるよう調整) -->
-                        <div class="p-4 flex flex-col flex-grow justify-between gap-2 overflow-hidden">
-                            <div class="overflow-hidden flex flex-col flex-grow">
+                        <!-- カード本文エリア -->
+                        <div class="p-4 flex flex-col justify-between gap-3">
+                            <div>
                                 <a v-if="photo.worldUrl" :href="photo.worldUrl" target="_blank" class="text-lg font-bold theme-text-accent hover:underline block truncate mb-1">
                                     {{ photo.worldName || 'Unknown World' }}
                                 </a>
                                 <p v-else class="text-lg font-bold text-gray-200 truncate mb-1">{{ photo.worldName || 'Unknown World' }}</p>
                                 
-                                <!-- コメントエリア (必要な時だけスクロールバーが出る) -->
-                                <div class="theme-panel rounded-lg p-2.5 border border-[#1f3f45] flex-grow overflow-y-auto">
-                                    <textarea v-model="photo.comment" @change="updateComment(photo)" rows="2" 
-                                        class="w-full h-full bg-transparent text-sm text-gray-200 focus:outline-none resize-none leading-relaxed" 
-                                        placeholder="no comment"></textarea>
+                                <!-- コメント表示 (1行＋マウスオーバーで全文確認) -->
+                                <div class="bg-black bg-opacity-30 rounded px-2.5 py-1.5 border border-[#1f3f45] text-xs text-gray-300 truncate" :title="photo.comment">
+                                    {{ photo.comment || 'no comment' }}
                                 </div>
                             </div>
 
                             <!-- コントロール群 -->
-                            <div class="flex flex-col gap-2 pt-2 border-t border-[#1f3f45] flex-shrink-0">
+                            <div class="flex flex-col gap-2 pt-3 border-t border-[#1f3f45]">
                                 <div class="flex justify-between items-center text-xs">
                                     <div class="flex gap-2">
                                         <button @click="moveOrder(photo, 'up')" :disabled="index === 0" class="bg-[#1f3f45] hover:bg-[#28545c] disabled:opacity-30 px-2 py-0.5 rounded text-white font-bold" title="一つ上へ">▲</button>
@@ -221,17 +143,31 @@
                                     </div>
                                 </div>
 
-                                <div class="flex justify-between items-center">
+                                <div class="flex justify-between items-center pt-1">
                                     <button @click="openMoveDialog(photo)" class="text-[11px] text-[#00d2c4] hover:brightness-125 border border-[#00d2c4] rounded px-2.5 py-1 transition">別タブ移動</button>
-                                    <button @click="deletePhoto(photo.id)" class="text-[11px] text-red-400 hover:text-red-300 px-2 py-1 font-bold">削除</button>
+                                    <div class="flex items-center gap-3">
+                                        <button @click="openEditModal(photo)" class="text-[11px] text-blue-300 hover:underline">カードを編集</button>
+                                        <button @click="deletePhoto(photo.id)" class="text-[11px] text-red-400 hover:text-red-300 font-bold">削除</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- 一番後ろの「+ add world」カード -->
+                    <div @click="isUploadModalOpen = true" 
+                         class="theme-panel rounded-xl overflow-hidden shadow-xl border-2 border-dashed border-[#28545c] hover:border-[#00d2c4] transition-all flex flex-col items-center justify-center cursor-pointer min-h-[380px] group">
+                        <div class="w-16 h-16 rounded-full bg-black bg-opacity-40 flex items-center justify-center text-[#00d2c4] text-3xl font-bold mb-3 group-hover:scale-110 transition-transform">
+                            ＋
+                        </div>
+                        <span class="text-gray-300 font-bold text-lg group-hover:text-[#00d2c4] transition-colors">+ add world</span>
+                        <span class="text-gray-500 text-xs mt-1">VRChat写真をドロップして登録</span>
+                    </div>
+
                 </div>
                 
-                <div v-if="photos.length === 0" class="text-center text-gray-500 py-20 flex-grow text-lg">
-                    ワールドがありません。「ワールドを登録する」から追加してください。
+                <div v-if="photos.length === 0" class="text-center text-gray-500 py-12">
+                    登録されているワールドはまだありません。上の「＋ ワールド登録」または右のカードから追加してください。
                 </div>
             </div>
 
@@ -254,7 +190,7 @@
                     </div>
                 </div>
 
-                <!-- ヘッダーバナー設定 (トリミング付き) -->
+                <!-- ヘッダーバナー設定 -->
                 <div class="theme-panel rounded-xl p-8 shadow-xl border border-[#1f3f45]">
                     <h2 class="text-xl font-bold mb-5 border-b border-[#1f3f45] pb-2">ヘッダーバナー画像設定</h2>
                     <p class="text-sm text-gray-300 mb-4">横長の画像をドラッグ＆ドロップすると、縦位置（トリミング位置）を調整してバナーに設定できます。</p>
@@ -270,7 +206,7 @@
 
                     <div v-else class="flex flex-col gap-4 bg-black bg-opacity-40 p-4 rounded-xl border border-[#28545c]">
                         <label class="block text-sm text-gray-300 font-bold">② バナーの縦位置トリミング調整</label>
-                        <div class="w-full aspect-[3/1] bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] relative flex items-center justify-center">
+                        <div class="w-full aspect-[4/1] bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] relative flex items-center justify-center">
                             <canvas ref="bannerCropCanvas" class="w-full h-full object-cover"></canvas>
                         </div>
                         <div>
@@ -328,19 +264,114 @@
             </div>
         </main>
 
-        <!-- 「9つのワールド」画像生成モーダル (タイトル編集＆ツイート連動) -->
+        <!-- ▼ ワールド新規登録モーダル ▼ -->
+        <div v-if="isUploadModalOpen" class="fixed inset-0 bg-black bg-opacity-90 z-[99999] flex items-center justify-center p-4">
+            <div class="theme-panel rounded-xl p-6 max-w-[800px] w-full flex flex-col border border-[#1f3f45] shadow-2xl max-h-[95vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4 border-b border-[#1f3f45] pb-2">
+                    <h3 class="text-xl font-bold theme-text-accent">ワールドを登録する ({{ activeTab }})</h3>
+                    <button @click="isUploadModalOpen = false; preview = null;" class="text-gray-400 hover:text-white font-bold text-lg">✕</button>
+                </div>
+
+                <div v-if="!preview" 
+                     class="drop-zone rounded-xl p-16 text-center cursor-pointer flex flex-col items-center justify-center bg-black bg-opacity-30 my-4"
+                     :class="{'drag-over': isDragging}"
+                     @dragover.prevent="isDragging = true"
+                     @dragleave.prevent="isDragging = false"
+                     @drop.prevent="handleDrop">
+                    <svg class="w-16 h-16 text-[#00d2c4] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <p class="text-gray-200 font-bold text-lg">VRChatの写真（PNG）をここにドラッグ＆ドロップ</p>
+                    <p class="text-gray-400 text-sm mt-2">メタデータからワールド名とURLを自動抽出します</p>
+                </div>
+
+                <div v-else class="flex flex-col lg:flex-row gap-6 my-2">
+                    <div class="w-full lg:w-1/2 flex flex-col gap-3">
+                        <label class="block text-sm text-gray-300 font-bold">① サムネイル切り抜きプレビュー (正方形 1:1)</label>
+                        <div class="w-full aspect-square max-w-[300px] mx-auto bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] shadow-inner flex items-center justify-center">
+                            <canvas ref="cropCanvas" class="w-full h-full object-cover"></canvas>
+                        </div>
+                        <div class="bg-black bg-opacity-30 p-3 rounded-lg flex flex-col gap-2">
+                            <div>
+                                <div class="flex justify-between text-xs text-gray-400 mb-1"><span>拡大率:</span><span>{{ cropSettings.zoom.toFixed(1) }}x</span></div>
+                                <input type="range" v-model.number="cropSettings.zoom" min="1" max="2.5" step="0.05" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <div class="text-[10px] text-gray-400 mb-1">横位置: {{ cropSettings.x }}%</div>
+                                    <input type="range" v-model.number="cropSettings.x" min="0" max="100" step="1" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
+                                </div>
+                                <div>
+                                    <div class="text-[10px] text-gray-400 mb-1">縦位置: {{ cropSettings.y }}%</div>
+                                    <input type="range" v-model.number="cropSettings.y" min="0" max="100" step="1" @input="updateCropPreview" class="w-full accent-[#00d2c4]">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full lg:w-1/2 flex flex-col justify-between gap-3">
+                        <div class="flex flex-col gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">ワールド名</label>
+                                <input v-model="preview.worldName" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#00d2c4]">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">ワールドURL</label>
+                                <input v-model="preview.worldUrl" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm text-gray-300 focus:outline-none focus:border-[#00d2c4]">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">コメント (複数行可)</label>
+                                <textarea v-model="preview.comment" rows="3" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm focus:outline-none focus:border-[#00d2c4] resize-none" placeholder="思い出などを入力..."></textarea>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-2">
+                            <button @click="preview = null" class="text-sm text-red-400 hover:text-red-300 px-5 py-2 border border-red-400 rounded-lg font-bold">やり直す</button>
+                            <button @click="savePhoto" class="theme-accent font-bold py-2.5 px-8 rounded-lg transition-colors shadow-lg">
+                                登録する
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ▼ カード編集モーダル ▼ -->
+        <div v-if="editingPhoto" class="fixed inset-0 bg-black bg-opacity-90 z-[99999] flex items-center justify-center p-4">
+            <div class="theme-panel rounded-xl p-6 max-w-[500px] w-full flex flex-col border border-[#1f3f45] shadow-2xl">
+                <div class="flex justify-between items-center mb-4 border-b border-[#1f3f45] pb-2">
+                    <h3 class="text-lg font-bold theme-text-accent">カード情報の編集</h3>
+                    <button @click="editingPhoto = null" class="text-gray-400 hover:text-white font-bold">✕</button>
+                </div>
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">ワールド名</label>
+                        <input v-model="editingPhoto.worldName" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#00d2c4]">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">ワールドURL</label>
+                        <input v-model="editingPhoto.worldUrl" type="text" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm text-gray-300 focus:outline-none focus:border-[#00d2c4]">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">コメント</label>
+                        <textarea v-model="editingPhoto.comment" rows="4" class="w-full bg-black bg-opacity-40 border border-[#28545c] rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#00d2c4] resize-none"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6 pt-3 border-t border-[#1f3f45]">
+                    <button @click="editingPhoto = null" class="px-5 py-2 rounded-lg border border-gray-500 text-sm font-bold text-gray-300">キャンセル</button>
+                    <button @click="saveEditedPhoto" class="theme-accent px-6 py-2 rounded-lg text-sm shadow">保存する</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ▼ 「9つのワールド」画像生成モーダル ▼ -->
         <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-90 z-[99999] flex items-center justify-center p-4">
             <div class="theme-panel rounded-xl p-6 max-w-[700px] w-full flex flex-col items-center border border-[#1f3f45] shadow-2xl max-h-[95vh] overflow-y-auto">
                 
                 <h3 class="text-xl font-bold mb-3 theme-text-accent">9つのワールド画像生成</h3>
                 
-                <!-- タイトル編集フォーム -->
                 <div class="w-full flex flex-col gap-1 mb-3">
                     <label class="text-xs text-gray-400 font-bold">画像内のタイトル文言 (編集可能)</label>
                     <input v-model="collageTitle" type="text" @input="updateCollageCanvas" class="w-full bg-black bg-opacity-50 border border-[#28545c] rounded-lg p-2.5 text-sm text-white font-bold focus:outline-none focus:border-[#00d2c4]">
                 </div>
 
-                <!-- キャンバスプレビュー -->
                 <div class="w-full bg-black rounded-lg overflow-hidden border border-[#1f3f45] mb-4 flex justify-center shadow-inner relative p-2">
                     <canvas ref="collageCanvas" class="max-w-full h-auto object-contain" style="max-height: 44vh;"></canvas>
                 </div>
@@ -369,7 +400,7 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
-        const db = new Dexie('VRCAlbumDB_Final7');
+        const db = new Dexie('VRCAlbumDB_Final8');
         db.version(1).stores({
             photos: '++id, tab, worldUrl, worldName, comment, order',
             settings: 'key'
@@ -410,13 +441,16 @@
                 const manageTargetTab = ref('world1');
                 const manageRenameInput = ref('');
                 
-                const isUploadOpen = ref(false);
+                const isUploadModalOpen = ref(false);
                 const isDragging = ref(false);
                 const isBannerDragging = ref(false);
                 const preview = ref(null);
                 const cropCanvas = ref(null);
                 const cropSettings = reactive({ zoom: 1.0, x: 50, y: 50 });
                 const photos = ref([]);
+
+                // 編集モーダル用
+                const editingPhoto = ref(null);
 
                 // バナー調整用
                 const bannerPreview = ref(null);
@@ -439,21 +473,20 @@
 
                 const bannerHeaderStyle = computed(() => settings.bannerImage ? { backgroundImage: `url(${settings.bannerImage})` } : {});
 
-                // TwitterシェアURL (タイトル連動)
                 const twitterShareUrl = computed(() => {
                     const text = encodeURIComponent(`${collageTitle.value}\n#VRChat #VRCWorldAlbum\nhttps://futabatosiakitw-art.github.io/VRC_album_tool/`);
                     return `https://twitter.com/intent/tweet?text=${text}`;
                 });
 
                 onMounted(async () => {
-                    const savedTabs = localStorage.getItem('vrc-tabs-final6');
+                    const savedTabs = localStorage.getItem('vrc-tabs-final7');
                     if (savedTabs) {
                         tabs.value = JSON.parse(savedTabs);
                     } else {
                         tabs.value = ['world1', 'world2'];
                     }
                     
-                    const savedTheme = localStorage.getItem('vrc-theme-final6');
+                    const savedTheme = localStorage.getItem('vrc-theme-final7');
                     if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
 
                     const bannerDb = await db.settings.get('bannerImage');
@@ -466,13 +499,13 @@
                     loadPhotos();
                 });
 
-                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final6', JSON.stringify(newTabs)), { deep: true });
-                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final6', JSON.stringify(newTheme)), { deep: true });
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final7', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final7', JSON.stringify(newTheme)), { deep: true });
 
                 const changeTab = (tabName) => {
                     activeTab.value = tabName;
                     if (tabName !== '設定') {
-                        isUploadOpen.value = false;
+                        isUploadModalOpen.value = false;
                         preview.value = null;
                         loadPhotos();
                     } else {
@@ -617,12 +650,27 @@
                     });
 
                     preview.value = null;
-                    isUploadOpen.value = false;
+                    isUploadModalOpen.value = false;
                     loadPhotos();
                 };
 
                 const updateComment = async (photo) => {
                     await db.photos.update(photo.id, { comment: photo.comment });
+                };
+
+                const openEditModal = (photo) => {
+                    editingPhoto.value = { ...photo };
+                };
+
+                const saveEditedPhoto = async () => {
+                    if (!editingPhoto.value) return;
+                    await db.photos.update(editingPhoto.value.id, {
+                        worldName: editingPhoto.value.worldName,
+                        worldUrl: editingPhoto.value.worldUrl,
+                        comment: editingPhoto.value.comment
+                    });
+                    editingPhoto.value = null;
+                    loadPhotos();
                 };
 
                 const deletePhoto = async (id) => {
@@ -694,11 +742,11 @@
                     if (!bannerPreview.value || !bannerCropCanvas.value) return;
                     const canvas = bannerCropCanvas.value;
                     const img = bannerPreview.value.rawImage;
-                    canvas.width = 1200; canvas.height = 400; // 3:1 比率
+                    canvas.width = 1200; canvas.height = 300; // 4:1 比率
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                    const targetAspect = 1200 / 400;
+                    const targetAspect = 1200 / 300;
                     const imgAspect = img.width / img.height;
                     let sW, sH, sx, sy;
 
@@ -714,10 +762,10 @@
                     if (!bannerPreview.value) return;
                     const canvas = document.createElement('canvas');
                     const img = bannerPreview.value.rawImage;
-                    canvas.width = 1200; canvas.height = 400; // 3:1 比率
+                    canvas.width = 1200; canvas.height = 300; // 4:1 比率
                     const ctx = canvas.getContext('2d');
 
-                    const targetAspect = 1200 / 400;
+                    const targetAspect = 1200 / 300;
                     const imgAspect = img.width / img.height;
                     let sW, sH, sx, sy;
 
@@ -746,7 +794,6 @@
                     nextTick(() => updateCollageCanvas());
                 };
 
-                // キャンバスに動的タイトルを反映させる描画関数
                 const updateCollageCanvas = async () => {
                     const canvas = collageCanvas.value;
                     if (!canvas) return;
@@ -756,11 +803,9 @@
                     canvas.height = cH;
                     const ctx = canvas.getContext('2d');
 
-                    // 背景
                     ctx.fillStyle = theme.bgColor;
                     ctx.fillRect(0, 0, cW, cH);
 
-                    // バナー領域 (1200 x 320)
                     const bannerH = 320;
                     if (settings.bannerImage) {
                         try {
@@ -774,13 +819,11 @@
                         ctx.fillRect(0, 0, cW, bannerH);
                     }
 
-                    // 入力されたタイトル文字を描画
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 50px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText(collageTitle.value || '9つのワールド', cW / 2, bannerH / 2 + 15);
 
-                    // 3x3 正方形カードグリッド描画
                     const items = photos.value.slice(0, 9);
                     const cardSize = 300;
                     const textSpace = 50;
@@ -871,8 +914,8 @@
                 return {
                     tabs, activeTab, changeTab, promptAddTab, 
                     manageTargetTab, manageRenameInput, renameSelectedTab, deleteSelectedTab,
-                    isUploadOpen, isDragging, isBannerDragging, handleDrop, preview, cropSettings, cropCanvas, updateCropPreview, savePhoto,
-                    photos, updateComment, deletePhoto, moveOrder, moveToIndex, openMoveDialog,
+                    isUploadModalOpen, isDragging, isBannerDragging, handleDrop, preview, cropSettings, cropCanvas, updateCropPreview, savePhoto,
+                    photos, updateComment, editingPhoto, openEditModal, saveEditedPhoto, deletePhoto, moveOrder, moveToIndex, openMoveDialog,
                     theme, cssVars, bannerHeaderStyle, resetTheme, settings, handleBannerDrop, removeBanner,
                     bannerPreview, bannerCropCanvas, bannerCropY, updateBannerCropPreview, saveBannerImage,
                     exportData, importData,
