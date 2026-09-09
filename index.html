@@ -218,7 +218,7 @@
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-gray-400">移動先№:</span>
-                                        <input type="number.number" :value="index + 1" @change="moveToIndex(photo, $event.target.value)" min="1" :max="photos.length" class="w-12 bg-black bg-opacity-50 border border-gray-600 text-center rounded py-1 text-white">
+                                        <input type="number" :value="index + 1" @change="moveToIndex(photo, $event.target.value)" min="1" :max="photos.length" class="w-12 bg-black bg-opacity-50 border border-gray-600 text-center rounded py-1 text-white">
                                     </div>
                                 </div>
 
@@ -243,12 +243,12 @@
                 <div class="theme-panel rounded-xl p-8 shadow-xl border border-gray-700">
                     <h2 class="text-xl font-bold mb-5 border-b border-gray-600 pb-2">タブの管理</h2>
                     <div class="flex flex-col sm:flex-row gap-4 items-center">
-                        <select v-model="manageTargetTab" class="bg-black bg-opacity-40 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none flex-grow">
-                            <option v-for="t in tabs" :value="t">{{ t }}</option>
+                        <select v-model="manageTargetTab" class="bg-black bg-opacity-40 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none flex-grow w-full sm:w-auto">
+                            <option v-for="t in tabs" :key="t" :value="t">{{ t }}</option>
                         </select>
                         <span class="text-gray-400 text-sm">の名前を</span>
-                        <input v-model="manageRenameInput" type="text" placeholder="新しい名前" class="bg-black bg-opacity-40 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none flex-grow">
-                        <button @click="renameSelectedTab" class="theme-accent font-bold px-6 py-2 rounded shadow">変更</button>
+                        <input v-model="manageRenameInput" type="text" placeholder="新しい名前" class="bg-black bg-opacity-40 border border-gray-600 rounded px-3 py-2 text-sm text-white focus:outline-none flex-grow w-full sm:w-auto">
+                        <button @click="renameSelectedTab" class="theme-accent font-bold px-6 py-2 rounded shadow w-full sm:w-auto">変更</button>
                     </div>
                     <div class="mt-6 pt-4 border-t border-gray-700 flex justify-end">
                         <button @click="deleteSelectedTab" class="bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-2 rounded shadow">選択中のタブを完全に削除</button>
@@ -328,8 +328,8 @@
                         まずは<strong class="text-white">「画像をダウンロード」</strong>してから、シェアボタンを押して画像を貼り付けてください。
                     </p>
                     <div class="flex flex-wrap gap-4 justify-center w-full">
-                        <button @click="isModalOpen = false" class="px-6 py-3 rounded-lg border border-gray-500 hover:bg-gray-700 text-sm font-bold">閉じる</button>
-                        <button @click="downloadCollage" class="theme-accent px-8 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
+                        <button @click="isModalOpen = false" class="px-6 py-3 rounded-lg border border-gray-500 hover:bg-gray-700 text-sm font-bold text-white">閉じる</button>
+                        <button @click="downloadCollage" class="theme-accent px-8 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2 text-white">
                             📥 画像をダウンロード
                         </button>
                         <a :href="twitterShareUrl" target="_blank" class="bg-[#1DA1F2] hover:bg-[#1a91da] text-white px-8 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
@@ -346,7 +346,7 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
-        const db = new Dexie('VRCAlbumDB_Final2');
+        const db = new Dexie('VRCAlbumDB_Final3');
         db.version(1).stores({
             photos: '++id, tab, worldUrl, worldName, comment, order',
             settings: 'key'
@@ -415,14 +415,14 @@
                 const bannerStyle = computed(() => settings.bannerImage ? { backgroundImage: `url(${settings.bannerImage})` } : {});
 
                 onMounted(async () => {
-                    const savedTabs = localStorage.getItem('vrc-tabs-final');
+                    const savedTabs = localStorage.getItem('vrc-tabs-final2');
                     if (savedTabs) {
                         tabs.value = JSON.parse(savedTabs);
                     } else {
                         tabs.value = ['world1', 'world2'];
                     }
                     
-                    const savedTheme = localStorage.getItem('vrc-theme-final');
+                    const savedTheme = localStorage.getItem('vrc-theme-final2');
                     if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
 
                     const bannerDb = await db.settings.get('bannerImage');
@@ -435,8 +435,8 @@
                     loadPhotos();
                 });
 
-                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final', JSON.stringify(newTabs)), { deep: true });
-                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final', JSON.stringify(newTheme)), { deep: true });
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final2', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final2', JSON.stringify(newTheme)), { deep: true });
 
                 const changeTab = (tabName) => {
                     activeTab.value = tabName;
@@ -445,7 +445,6 @@
                         preview.value = null;
                         loadPhotos();
                     } else {
-                        // 設定タブを開いた時の初期値セット
                         manageTargetTab.value = tabs.value[0];
                         manageRenameInput.value = '';
                     }
@@ -464,7 +463,6 @@
                     }
                 };
 
-                // 設定タブ内での名前変更
                 const renameSelectedTab = async () => {
                     const oldName = manageTargetTab.value;
                     const newName = manageRenameInput.value.trim();
@@ -485,7 +483,6 @@
                     alert(`タブ名を「${newName}」に変更しました。`);
                 };
 
-                // 設定タブ内での削除
                 const deleteSelectedTab = async () => {
                     const target = manageTargetTab.value;
                     if (tabs.value.length <= 1) return alert("最後のタブは削除できません。");
@@ -685,8 +682,8 @@
                         ctx.fillStyle = theme.bgColor;
                         ctx.fillRect(0, 0, cW, cH);
 
-                        // バナー領域 (1200 x 300) カバー描画
-                        const bannerH = 300;
+                        // バナー領域 (1200 x 320) カバー描画
+                        const bannerH = 320;
                         if (settings.bannerImage) {
                             try {
                                 const bannerImg = await loadImage(settings.bannerImage);
@@ -694,12 +691,12 @@
                                 const imgRatio = bannerImg.width / bannerImg.height;
                                 let sx, sy, sW, sH;
                                 
-                                if (imgRatio > targetRatio) { // 画像が横長すぎる
+                                if (imgRatio > targetRatio) { // 横長すぎる
                                     sH = bannerImg.height;
                                     sW = bannerImg.height * targetRatio;
                                     sx = (bannerImg.width - sW) / 2;
                                     sy = 0;
-                                } else { // 画像が縦長すぎる
+                                } else { // 縦長すぎる
                                     sW = bannerImg.width;
                                     sH = bannerImg.width / targetRatio;
                                     sx = 0;
@@ -720,16 +717,19 @@
                         ctx.textAlign = 'center';
                         ctx.fillText("私を構成する9つのワールド", cW / 2, bannerH / 2 + 15);
 
-                        // 3x3 グリッド描画 (1200x1300の領域に配置)
+                        // 3x3 グリッド描画
                         const items = mainPhotos.slice(0, 9);
-                        const thumbW = 320;
-                        const thumbH = 180; // 16:9
-                        const textSpace = 40;
+                        const thumbW = 340;
+                        const thumbH = 191; // 16:9
+                        const textSpace = 50;
                         const itemH = thumbH + textSpace;
                         
-                        const gapX = (cW - (thumbW * 3)) / 4; // 均等マージン
-                        const startY = bannerH + 60;
-                        const gapY = (cH - startY - (itemH * 3)) / 4;
+                        // 左右の余白
+                        const gapX = (cW - (thumbW * 3)) / 4;
+                        // 上下の余白 (バナー下からキャンバス下端まで)
+                        const startY = bannerH;
+                        const availableH = cH - startY;
+                        const gapY = (availableH - (itemH * 3)) / 4;
 
                         for (let i = 0; i < items.length; i++) {
                             const row = Math.floor(i / 3);
@@ -747,10 +747,10 @@
 
                             // ワールド名
                             ctx.fillStyle = '#ffffff';
-                            ctx.font = 'bold 22px sans-serif';
+                            ctx.font = 'bold 24px sans-serif';
                             ctx.textAlign = 'left';
                             const text = items[i].worldName || 'Unknown World';
-                            ctx.fillText(text.length > 18 ? text.slice(0, 18) + '...' : text, x, y + thumbH + 30);
+                            ctx.fillText(text.length > 17 ? text.slice(0, 17) + '...' : text, x, y + thumbH + 35);
                         }
 
                         // Twitterシェア用URL生成 (指定URLとハッシュタグ込み)
@@ -820,7 +820,7 @@
                     manageTargetTab, manageRenameInput, renameSelectedTab, deleteSelectedTab,
                     isUploadOpen, isDragging, isBannerDragging, handleDrop, preview, cropSettings, cropCanvas, updateCropPreview, savePhoto,
                     photos, updateComment, deletePhoto, moveOrder, moveToIndex, openMoveDialog,
-                    theme, cssVars, resetTheme, settings, handleBannerDrop, removeBanner,
+                    theme, cssVars, bannerStyle, resetTheme, settings, handleBannerDrop, removeBanner,
                     exportData, importData,
                     isModalOpen, collageCanvas, generateNineWorlds, downloadCollage, twitterShareUrl
                 };
