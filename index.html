@@ -110,7 +110,7 @@
                     {{ isUploadOpen ? '登録パネルを閉じる' : 'ワールドを登録する' }}
                 </button>
 
-                <!-- 登録用インターフェース -->
+                <!-- 登録用インターフェース (1:1正方形切り抜き対応) -->
                 <transition name="accordion">
                     <div v-show="isUploadOpen" class="theme-panel rounded-xl p-8 mb-8 shadow-2xl border border-[#1f3f45]">
                         <div v-if="!preview" 
@@ -126,8 +126,8 @@
 
                         <div v-else class="flex flex-col lg:flex-row gap-8">
                             <div class="w-full lg:w-1/2 flex flex-col gap-4">
-                                <label class="block text-sm text-gray-300 font-bold">① サムネイル切り抜きプレビュー (16:9)</label>
-                                <div class="w-full aspect-video bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] shadow-inner flex items-center justify-center">
+                                <label class="block text-sm text-gray-300 font-bold">① サムネイル切り抜きプレビュー (正方形 1:1)</label>
+                                <div class="w-full aspect-square max-w-[360px] mx-auto bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] shadow-inner flex items-center justify-center">
                                     <canvas ref="cropCanvas" class="w-full h-full object-cover"></canvas>
                                 </div>
                                 <div class="bg-black bg-opacity-30 p-4 rounded-lg flex flex-col gap-3">
@@ -174,13 +174,13 @@
                     </div>
                 </transition>
 
-                <!-- アルバムギャラリー (横3列) -->
+                <!-- アルバムギャラリー (正方形サムネでインスタ風) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <div v-for="(photo, index) in photos" :key="photo.id" 
                          class="theme-panel rounded-xl overflow-hidden shadow-2xl border border-[#1f3f45] hover:border-[#00d2c4] transition-all flex flex-col">
                         
-                        <!-- サムネイル画像 -->
-                        <div class="w-full aspect-video bg-black relative hover-trigger cursor-crosshair">
+                        <!-- サムネイル画像 (1:1 正方形) -->
+                        <div class="w-full aspect-square bg-black relative hover-trigger cursor-crosshair">
                             <img :src="photo.thumbnail" alt="thumbnail" class="w-full h-full object-cover">
                             <span class="absolute top-2 left-2 bg-black bg-opacity-70 text-[11px] px-2 py-0.5 rounded text-white font-mono">#{{ index + 1 }}</span>
                             <span class="absolute bottom-2 right-2 bg-black bg-opacity-70 text-[10px] px-2 py-0.5 rounded text-gray-300 pointer-events-none">🔍 ホバーで全体像</span>
@@ -200,7 +200,7 @@
                                 </a>
                                 <p v-else class="text-xl font-bold text-gray-200 truncate mb-3">{{ photo.worldName || 'Unknown World' }}</p>
                                 
-                                <!-- コメントエリア (必要な時だけスクロールバーが出る仕様) -->
+                                <!-- コメントエリア -->
                                 <div class="theme-panel rounded-lg p-3 border border-[#1f3f45] h-28 overflow-y-auto">
                                     <textarea v-model="photo.comment" @change="updateComment(photo)" rows="3" 
                                         class="w-full h-full bg-transparent text-sm text-gray-200 focus:outline-none resize-none leading-relaxed" 
@@ -268,7 +268,6 @@
                         <p class="text-sm text-gray-200 font-bold">ここにバナー画像をドラッグ＆ドロップ</p>
                     </div>
 
-                    <!-- バナーの縦位置調整プレビュー -->
                     <div v-else class="flex flex-col gap-4 bg-black bg-opacity-40 p-4 rounded-xl border border-[#28545c]">
                         <label class="block text-sm text-gray-300 font-bold">② バナーの縦位置トリミング調整</label>
                         <div class="w-full h-36 bg-black rounded-lg overflow-hidden border-2 border-[#00d2c4] relative flex items-center justify-center">
@@ -329,26 +328,27 @@
             </div>
         </main>
 
-        <!-- 「9つのワールド」画像生成モーダル (1:1カード対応) -->
+        <!-- 「9つのワールド」画像生成モーダル (見切れ防止・高さ最適化) -->
         <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-90 z-[99999] flex items-center justify-center p-4">
-            <div class="theme-panel rounded-xl p-6 max-w-[800px] w-full flex flex-col items-center border border-[#1f3f45] shadow-2xl max-h-[95vh] overflow-y-auto">
-                <h3 class="text-xl font-bold mb-4 theme-text-accent">私を構成する9つのワールド</h3>
+            <div class="theme-panel rounded-xl p-6 max-w-[700px] w-full flex flex-col items-center border border-[#1f3f45] shadow-2xl max-h-[95vh] overflow-y-auto">
+                <h3 class="text-xl font-bold mb-3 theme-text-accent">私を構成する9つのワールド</h3>
                 
-                <div class="w-full bg-black rounded-lg overflow-hidden border border-[#1f3f45] mb-6 flex justify-center shadow-inner relative">
-                    <canvas ref="collageCanvas" class="max-w-full h-auto object-contain" style="max-height: 60vh;"></canvas>
+                <!-- 見切れ防止のためプレビューの高さを抑える -->
+                <div class="w-full bg-black rounded-lg overflow-hidden border border-[#1f3f45] mb-4 flex justify-center shadow-inner relative p-2">
+                    <canvas ref="collageCanvas" class="max-w-full h-auto object-contain" style="max-height: 48vh;"></canvas>
                 </div>
 
-                <div class="w-full bg-black bg-opacity-30 p-4 rounded-lg flex flex-col items-center gap-4">
-                    <p class="text-sm text-gray-300 text-center leading-relaxed">
+                <div class="w-full bg-black bg-opacity-30 p-4 rounded-lg flex flex-col items-center gap-3">
+                    <p class="text-xs text-gray-300 text-center leading-relaxed">
                         ※X (Twitter)の仕様上、ブラウザから直接画像を添付してツイート画面を開くことはできません。<br>
                         まずは<strong class="text-white">「画像をダウンロード」</strong>してから、シェアボタンを押して画像を貼り付けてください。
                     </p>
-                    <div class="flex flex-wrap gap-4 justify-center w-full">
-                        <button @click="isModalOpen = false" class="px-6 py-3 rounded-lg border border-gray-500 hover:bg-gray-700 text-sm font-bold text-white">閉じる</button>
-                        <button @click="downloadCollage" class="theme-accent px-8 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
+                    <div class="flex flex-wrap gap-3 justify-center w-full">
+                        <button @click="isModalOpen = false" class="px-5 py-2.5 rounded-lg border border-gray-500 hover:bg-gray-700 text-sm font-bold text-white">閉じる</button>
+                        <button @click="downloadCollage" class="theme-accent px-6 py-2.5 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
                             📥 画像をダウンロード
                         </button>
-                        <a :href="twitterShareUrl" target="_blank" class="bg-[#1DA1F2] hover:bg-[#1a91da] text-white px-8 py-3 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
+                        <a :href="twitterShareUrl" target="_blank" class="bg-[#1DA1F2] hover:bg-[#1a91da] text-white px-6 py-2.5 rounded-lg font-bold text-sm shadow-lg flex items-center gap-2">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
                             X でシェアする
                         </a>
@@ -362,7 +362,7 @@
     <script>
         const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
 
-        const db = new Dexie('VRCAlbumDB_Final5');
+        const db = new Dexie('VRCAlbumDB_Final6');
         db.version(1).stores({
             photos: '++id, tab, worldUrl, worldName, comment, order',
             settings: 'key'
@@ -433,14 +433,14 @@
                 const bannerHeaderStyle = computed(() => settings.bannerImage ? { backgroundImage: `url(${settings.bannerImage})` } : {});
 
                 onMounted(async () => {
-                    const savedTabs = localStorage.getItem('vrc-tabs-final4');
+                    const savedTabs = localStorage.getItem('vrc-tabs-final5');
                     if (savedTabs) {
                         tabs.value = JSON.parse(savedTabs);
                     } else {
                         tabs.value = ['world1', 'world2'];
                     }
                     
-                    const savedTheme = localStorage.getItem('vrc-theme-final4');
+                    const savedTheme = localStorage.getItem('vrc-theme-final5');
                     if (savedTheme) Object.assign(theme, JSON.parse(savedTheme));
 
                     const bannerDb = await db.settings.get('bannerImage');
@@ -453,8 +453,8 @@
                     loadPhotos();
                 });
 
-                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final4', JSON.stringify(newTabs)), { deep: true });
-                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final4', JSON.stringify(newTheme)), { deep: true });
+                watch(tabs, (newTabs) => localStorage.setItem('vrc-tabs-final5', JSON.stringify(newTabs)), { deep: true });
+                watch(theme, (newTheme) => localStorage.setItem('vrc-theme-final5', JSON.stringify(newTheme)), { deep: true });
 
                 const changeTab = (tabName) => {
                     activeTab.value = tabName;
@@ -545,19 +545,19 @@
                     reader.readAsDataURL(file);
                 };
 
+                // 1:1 正方形切り取りプレビュー
                 const updateCropPreview = () => {
                     if (!preview.value || !cropCanvas.value) return;
                     const canvas = cropCanvas.value;
                     const img = preview.value.rawImage;
-                    canvas.width = 800; canvas.height = 450;
+                    canvas.width = 600; canvas.height = 600;
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                    const targetAspect = 800 / 450;
                     const imgAspect = img.width / img.height;
                     let baseW, baseH;
-                    if (imgAspect > targetAspect) { baseH = img.height; baseW = img.height * targetAspect; }
-                    else { baseW = img.width; baseH = img.width / targetAspect; }
+                    if (imgAspect > 1) { baseH = img.height; baseW = img.height; }
+                    else { baseW = img.width; baseH = img.width; }
 
                     const srcW = baseW / cropSettings.zoom;
                     const srcH = baseH / cropSettings.zoom;
@@ -571,15 +571,14 @@
                     if (!preview.value) return;
                     const img = preview.value.rawImage;
 
-                    // 1. 16:9サムネイル生成
+                    // 1:1 サムネイル生成
                     const canvas = document.createElement('canvas');
-                    canvas.width = 800; canvas.height = 450;
+                    canvas.width = 600; canvas.height = 600;
                     const ctx = canvas.getContext('2d');
-                    const targetAspect = 800 / 450;
                     const imgAspect = img.width / img.height;
                     let baseW, baseH;
-                    if (imgAspect > targetAspect) { baseH = img.height; baseW = img.height * targetAspect; }
-                    else { baseW = img.width; baseH = img.width / targetAspect; }
+                    if (imgAspect > 1) { baseH = img.height; baseW = img.height; }
+                    else { baseW = img.width; baseH = img.width; }
                     const srcW = baseW / cropSettings.zoom;
                     const srcH = baseH / cropSettings.zoom;
                     const srcX = (img.width - srcW) * (cropSettings.x / 100);
@@ -587,17 +586,7 @@
                     ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
                     const thumbnailWebp = canvas.toDataURL('image/webp', 0.8);
 
-                    // 2. 正方形 (1:1) サムネイル生成 (16:9の中央をベースに正方形化)
-                    const sqCanvas = document.createElement('canvas');
-                    sqCanvas.width = 600; sqCanvas.height = 600;
-                    const sqCtx = sqCanvas.getContext('2d');
-                    const sqSize = Math.min(srcW, srcH);
-                    const sqSrcX = srcX + (srcW - sqSize) / 2;
-                    const sqSrcY = srcY + (srcH - sqSize) / 2;
-                    sqCtx.drawImage(img, sqSrcX, sqSrcY, sqSize, sqSize, 0, 0, 600, 600);
-                    const squareWebp = sqCanvas.toDataURL('image/webp', 0.8);
-
-                    // 3. 全体写真
+                    // 全体写真 (オリジナル)
                     const originalCanvas = document.createElement('canvas');
                     const origScale = Math.min(1600 / img.width, 1);
                     originalCanvas.width = img.width * origScale;
@@ -613,7 +602,6 @@
                         worldName: preview.value.worldName,
                         comment: preview.value.comment,
                         thumbnail: thumbnailWebp,
-                        squareThumb: squareWebp, // 1:1用
                         original: originalWebp,
                         order: maxOrder + 1
                     });
@@ -674,7 +662,6 @@
                     }
                 };
 
-                // バナー設定・トリミング用
                 const handleBannerDrop = (e) => {
                     isBannerDragging.value = false;
                     const file = e.dataTransfer.files[0];
@@ -697,7 +684,7 @@
                     if (!bannerPreview.value || !bannerCropCanvas.value) return;
                     const canvas = bannerCropCanvas.value;
                     const img = bannerPreview.value.rawImage;
-                    canvas.width = 1200; canvas.height = 300; // 4:1 アス比プレビュー
+                    canvas.width = 1200; canvas.height = 300;
                     const ctx = canvas.getContext('2d');
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -706,15 +693,9 @@
                     let sW, sH, sx, sy;
 
                     if (imgAspect > targetAspect) {
-                        sH = img.height;
-                        sW = img.height * targetAspect;
-                        sx = (img.width - sW) / 2;
-                        sy = 0;
+                        sH = img.height; sW = img.height * targetAspect; sx = (img.width - sW) / 2; sy = 0;
                     } else {
-                        sW = img.width;
-                        sH = img.width / targetAspect;
-                        sx = 0;
-                        sy = (img.height - sH) * (bannerCropY.value / 100);
+                        sW = img.width; sH = img.width / targetAspect; sx = 0; sy = (img.height - sH) * (bannerCropY.value / 100);
                     }
                     ctx.drawImage(img, sx, sy, sW, sH, 0, 0, canvas.width, canvas.height);
                 };
@@ -749,7 +730,7 @@
                     await db.settings.delete('bannerImage');
                 };
 
-                // 「9つのワールド」コラージュ生成 (正方形 1:1 カード対応)
+                // 「9つのワールド」コラージュ生成 (1:1サムネイルをそのまま活用)
                 const generateNineWorlds = async () => {
                     const mainPhotos = photos.value;
                     if (mainPhotos.length === 0) return alert("現在のタブにワールドが登録されていません。");
@@ -789,7 +770,7 @@
 
                         // 3x3 正方形カードグリッド描画
                         const items = mainPhotos.slice(0, 9);
-                        const cardSize = 300; // 正方形サムネ
+                        const cardSize = 300; // 正方形
                         const textSpace = 50;
                         const itemH = cardSize + textSpace;
                         
@@ -804,9 +785,8 @@
                             const x = gapX + col * (cardSize + gapX);
                             const y = startY + gapY + row * (itemH + gapY);
 
-                            // 正方形サムネがある場合はそれを使用、なければ普通のthumbnailでフォールバック
-                            const thumbSrc = items[i].squareThumb || items[i].thumbnail;
-                            const thumbImg = await loadImage(thumbSrc);
+                            // 保存されている1:1サムネイルをそのまま使う
+                            const thumbImg = await loadImage(items[i].thumbnail);
                             ctx.drawImage(thumbImg, x, y, cardSize, cardSize);
 
                             // 枠線
